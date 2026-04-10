@@ -8,6 +8,8 @@ Application mobile de gestion d'événements développée avec React Native, Exp
 - ✅ Création d'événements avec image
 - ✅ Liste des événements avec recherche
 - ✅ Détail d'un événement
+- ✅ Modification d'un evenement
+- ✅ Suppression d'un événement
 - ✅ Participation aux événements
 - ✅ Gestion des places disponibles
 - ✅ Mode hors ligne (cache local)
