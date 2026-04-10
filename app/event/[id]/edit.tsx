@@ -1,36 +1,33 @@
-// app/(tabs)/add.tsx
-
 import { ImagePickerComponent } from '@/components/imagePickerComponent';
+import { useAuth } from '@/src/hook/useAuth';
 import { useEvents } from '@/src/hook/useEvents';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
-export default function AddEventScreen() {
+export default function EditEventScreen() {
   const router = useRouter();
-  const { addEvent, state } = useEvents();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { state, loadEvent, editEvent } = useEvents();
+  const { state: authState } = useAuth();
 
-  // Fonction pour formater la date
-  const formatDate = (date: Date): string => {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
+  const event = state.currentEvent;
+  const userId = authState.status === 'authenticated' ? authState.user.id : null;
+  const isCreator = event?.creator_id === userId;
+  const isLoading = state.status === 'loading';
 
-  // État du formulaire
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
@@ -38,17 +35,45 @@ export default function AddEventScreen() {
   const [address, setAddress] = useState('');
   const [places, setPlaces] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
-
-  // État pour le date picker
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-
-  // État local pour les erreurs de validation
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const isLoading = state.status === 'loading';
+  const formatDate = (date: Date): string => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
-  // Validation du formulaire
+  const formatTime = (date: Date): string => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  useEffect(() => {
+    if (id) {
+      loadEvent(id);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (event && !isInitialized) {
+      const eventDateObj = new Date(event.event_date);
+      setName(event.name);
+      setDescription(event.description || '');
+      setSelectedDate(eventDateObj);
+      setEventDate(formatDate(eventDateObj));
+      setEventTime(formatTime(eventDateObj));
+      setAddress(event.event_adress);
+      setPlaces(event.places.toString());
+      setImageUri(event.image_url || null);
+      setIsInitialized(true);
+    }
+  }, [event, isInitialized]);
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -84,7 +109,6 @@ export default function AddEventScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Convertir date et heure en objet Date
   const parseDateTime = (): Date | null => {
     try {
       const [day, month, year] = eventDate.split('/').map(Number);
@@ -95,9 +119,8 @@ export default function AddEventScreen() {
     }
   };
 
-  // Soumettre le formulaire
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm() || !id) return;
 
     const dateTime = parseDateTime();
     if (!dateTime) {
@@ -105,13 +128,12 @@ export default function AddEventScreen() {
       return;
     }
 
-    // Vérifier que la date est dans le futur
     if (dateTime < new Date()) {
       Alert.alert('Erreur', 'La date doit être dans le futur');
       return;
     }
 
-    const success = await addEvent({
+    const success = await editEvent(id, {
       name: name.trim(),
       description: description.trim(),
       event_date: dateTime,
@@ -121,30 +143,59 @@ export default function AddEventScreen() {
     });
 
     if (success) {
-      Alert.alert('Succès', 'Événement créé avec succès', [
-        { text: 'OK', onPress: () => router.back() },
+      Alert.alert('Succès', 'Événement modifié avec succès', [
+        { text: 'OK', onPress: () => router.push({ pathname: '/event/[id]/page', params: { id } }) },
       ]);
     } else {
-      Alert.alert('Erreur', state.error || 'Impossible de créer l\'événement');
+      Alert.alert('Erreur', state.error || 'Impossible de modifier l\'événement');
     }
   };
 
-  // Annuler
   const handleCancel = () => {
     router.back();
   };
+
+  if (isLoading && !event) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#4B9EF7" />
+        <Text style={styles.loadingText}>Chargement...</Text>
+      </View>
+    );
+  }
+
+  if (!event) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Événement introuvable.</Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)')} style={styles.button}>
+          <Text style={styles.buttonText}>Retour à la liste</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!isCreator) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Vous n'êtes pas autorisé à modifier cet événement.</Text>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/event/[id]/page', params: { id } })} style={styles.button}>
+          <Text style={styles.buttonText}>Retour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
           <Text style={styles.cancelButtonText}>Annuler</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nouvel événement</Text>
+        <Text style={styles.headerTitle}>Modifier l'événement</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -153,7 +204,6 @@ export default function AddEventScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image Picker */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Image de l'événement</Text>
           <ImagePickerComponent
@@ -164,7 +214,6 @@ export default function AddEventScreen() {
           />
         </View>
 
-        {/* Nom */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nom de l'événement *</Text>
           <TextInput
@@ -178,7 +227,6 @@ export default function AddEventScreen() {
           {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
         </View>
 
-        {/* Description */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Description</Text>
           <TextInput
@@ -194,7 +242,6 @@ export default function AddEventScreen() {
           />
         </View>
 
-        {/* Date et Heure */}
         <View style={styles.row}>
           <View style={[styles.inputGroup, styles.halfWidth]}>
             <Text style={styles.label}>Date *</Text>
@@ -225,7 +272,6 @@ export default function AddEventScreen() {
           </View>
         </View>
 
-        {/* Adresse */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Adresse *</Text>
           <TextInput
@@ -239,7 +285,6 @@ export default function AddEventScreen() {
           {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
         </View>
 
-        {/* Nombre de places */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nombre de places *</Text>
           <TextInput
@@ -254,7 +299,6 @@ export default function AddEventScreen() {
           {errors.places && <Text style={styles.errorText}>{errors.places}</Text>}
         </View>
 
-        {/* Bouton Créer */}
         <TouchableOpacity
           style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
           onPress={handleSubmit}
@@ -264,10 +308,10 @@ export default function AddEventScreen() {
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color="#FFFFFF" />
-              <Text style={styles.loadingText}>Création en cours...</Text>
+              <Text style={styles.loadingText}>Enregistrement...</Text>
             </View>
           ) : (
-            <Text style={styles.submitButtonText}>Créer l'événement</Text>
+            <Text style={styles.submitButtonText}>Enregistrer les modifications</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -388,5 +432,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  button: {
+    backgroundColor: '#4B9EF7',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

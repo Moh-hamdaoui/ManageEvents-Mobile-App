@@ -224,7 +224,7 @@ export default function HomeScreen() {
               </TouchableOpacity> 
             </View>
             <View>
-              <Text style={styles.welcomeText}>Bienvenue 👋</Text>
+              <Text style={styles.welcomeText}>Bienvenue</Text>
               <Text style={styles.userName}>{userName}</Text>
             </View>
           </View>
@@ -247,9 +247,6 @@ export default function HomeScreen() {
       <View style={styles.eventsSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Événements populaires</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAllText}>Voir tout</Text>
-          </TouchableOpacity>
         </View>
 
         <FlatList
@@ -303,12 +300,12 @@ const styles = StyleSheet.create({
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
+  },                                                                                                                                                                                                                                                                                   
   userAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#3b92f6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -520,7 +517,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bookButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#f68c3b',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,

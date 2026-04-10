@@ -1,26 +1,26 @@
 // DetailsScreen.tsx
 
+import { useAuth } from "@/src/hook/useAuth";
+import { useEventParticipation } from "@/src/hook/useEventParticipation";
+import { useEvents } from "@/src/hook/useEvents";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { useAuth } from "@/src/hook/useAuth";
-import { useEvents } from "@/src/hook/useEvents";
-import { useEventParticipation } from "@/src/hook/useEventParticipation";
 
 export default function DetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const { state: authState } = useAuth();
-  const { state: eventsState, loadEvent } = useEvents();
+  const { state: eventsState, loadEvent, removeEvent } = useEvents();
   const {
     state: participationState,
     participate,
@@ -64,7 +64,7 @@ export default function DetailsScreen() {
       const success = await cancelParticipation(id, userId);
       if (success) {
         Alert.alert("Succès", "Votre participation a été annulée");
-        loadEvent(id); // Recharger pour mettre à jour les places
+        loadEvent(id);
       } else {
         Alert.alert("Erreur", participationState.error || "Impossible d'annuler");
       }
@@ -72,11 +72,36 @@ export default function DetailsScreen() {
       const success = await participate(id, userId);
       if (success) {
         Alert.alert("Succès", "Vous participez à cet événement !");
-        loadEvent(id); // Recharger pour mettre à jour les places
+        loadEvent(id);
       } else {
         Alert.alert("Erreur", participationState.error || "Impossible de participer");
       }
     }
+  };
+
+  // Handler pour supprimer l'événement
+  const handleDelete = () => {
+    Alert.alert(
+      'Supprimer l\'événement',
+      'Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer', style: 'destructive', onPress: async () => {
+          const success = await removeEvent(id);
+          if (success) {
+            Alert.alert('Succès', 'Événement supprimé');
+            router.push('/(tabs)');
+          } else {
+            Alert.alert('Erreur', eventsState.error || 'Impossible de supprimer l\'événement');
+          }
+        }},
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    if (!id) return;
+    router.push({ pathname: '/event/[id]/edit', params: { id } });
   };
 
   const handleReturnToEventsList = () => {
@@ -178,7 +203,7 @@ export default function DetailsScreen() {
                 ? "❌ Annuler ma participation"
                 : isFull
                   ? "🚫 Complet"
-                  : "✓ Participer"}
+                  : "Participer"}
             </Text>
           )}
         </TouchableOpacity>
@@ -188,9 +213,31 @@ export default function DetailsScreen() {
       {isCreator && (
         <View style={styles.creatorBadge}>
           <Text style={styles.creatorText}>
-            👑 Vous êtes le créateur de cet événement
+            Vous êtes le créateur de cet événement
           </Text>
         </View>
+      )}
+
+      {/* Bouton Modifier si créateur */}
+      {isCreator && (
+        <TouchableOpacity
+          onPress={handleEdit}
+          style={styles.editButton}
+          disabled={isLoading}
+        >
+          <Text style={styles.editButtonText}>Modifier l'événement</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Bouton Supprimer si créateur */}
+      {isCreator && (
+        <TouchableOpacity
+          onPress={handleDelete}
+          style={styles.deleteButton}
+          disabled={isLoading}
+        >
+          <Text style={styles.deleteButtonText}>Supprimer l'événement</Text>
+        </TouchableOpacity>
       )}
 
       {/* Message si non connecté */}
@@ -335,6 +382,30 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: "#dc3545",
+  },
+  editButton: {
+    marginTop: 20,
+    backgroundColor: "#2563EB",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  editButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  deleteButton: {
+    marginTop: 20,
+    backgroundColor: "#dc3545",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  deleteButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
   },
   disabledButton: {
     backgroundColor: "#adb5bd",
